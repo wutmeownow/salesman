@@ -3,7 +3,7 @@ Starter code and data for traveling salesman problem
 
 Files in this directory:
 
-* datareader.cpp : example code to read in the data files
+* datareader.cpp : example code to read in the data files (use Makefile)
 * datareader.py  : example code to read in the data files
 * cities23.dat : list of coordinates for 23 cities in North America
 * cities150.dat : 150 cities in North America
