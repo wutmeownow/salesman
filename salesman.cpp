@@ -1,9 +1,12 @@
 // example code to read in a data file of city lat,long coordinates
 
+#include <algorithm>
 #include <iostream>
+#include <fstream>
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <unistd.h> // Required for getopt
 #include <TRandom3.h>
 
 using namespace std;
@@ -41,7 +44,7 @@ double GetTotalDistance(int ncities, const COORD *cities) {
   return dist;
 }
 
-void UpdatePath(int ncities, COORD *cities) {
+double UpdatePath(int ncities, COORD *cities) {
   TRandom3 *r = new TRandom3(0);
   int iRand = 0; // starting index of slice
   int lRand = ncities-1; // slice length
@@ -50,7 +53,7 @@ void UpdatePath(int ncities, COORD *cities) {
     iRand = r->Integer(ncities-1); // generate random starting index that CANNOT be final index
     lRand = r->Integer(ncities-iRand-1) + 1; // generate random slice from random index to end: (1, N-iRand-1) inclusive
   }
-  cout<< "Slice to reverse: " << iRand << " to "<< iRand + lRand <<endl;
+  // cout<< "Slice to reverse: " << iRand << " to "<< iRand + lRand <<endl;
 
   // difference in path length will come from change in slice end pairs
   int jRand = iRand + lRand; // final index of range to reverse
@@ -64,13 +67,20 @@ void UpdatePath(int ncities, COORD *cities) {
   double dold = GetDistance(cities[iRand], cities[ioldpartner]) + GetDistance(cities[jRand], cities[joldpartner]);
   double dnew = GetDistance(cities[iRand], cities[joldpartner]) + GetDistance(cities[jRand], cities[ioldpartner]);
   double dL = dnew-dold; // change in path length for this random slice reversal
+
+  // carry out the change with std::reverse
+  // Reverse indices iRand to jRand
+  // Pointer arithmetic: arr + start, arr + end + 1
+  reverse(cities+iRand, cities+jRand+1);
   
-  printf("Change in trip distance: %.3f km\n",	dL);
+  // printf("Change in trip distance: %.3f km\n",	dL);
+  return dL;
 }
 
+
 // fill the array of city locations
-int GetData(char* fname, COORD *cities){
-  FILE* fp=fopen(fname,"r");
+int GetData(string fname, COORD *cities){
+  FILE* fp=fopen(fname.c_str(),"r");
   const int bufsiz=1000;
   char line[bufsiz+1];
   int ncity=0;
@@ -86,24 +96,80 @@ int GetData(char* fname, COORD *cities){
   return ncity;
 }
 
+
+void WriteData(const string& filename, int ncity, const COORD *cities) {
+    // Open the file stream for writing
+    ofstream outFile(filename);
+
+    // Check if file opened successfully
+    if (!outFile.is_open()) {
+        std::cerr << "Error: Could not open file " << filename << " for writing." << std::endl;
+        return;
+    }
+
+    // Optional: Write a header line (useful for pandas/ROOT)
+    outFile << "#longitude   latitude\n";
+
+    // Loop through the data and write lines
+    for (int i=0;i<ncity;i++) {
+        outFile << cities[i].lon << "   " << cities[i].lat << "\n";
+    }
+
+    outFile.close();
+    std::cout << "Successfully wrote " << ncity << " points to " << filename << std::endl;
+}
+
+
 int main(int argc, char *argv[]){
   const int NMAX=2500;
   COORD cities[NMAX];
 
-  if (argc<2){
-    printf("Please provide a data file path as argument\n");
-    return 1;
+  // parameters
+  string filename = ""; // Default value
+  int opt;
+
+  // Loop through all arguments
+  // "n:f:" means we expect flags -n and -f, and both require values (:)
+  while ((opt = getopt(argc, argv, "f:")) != -1) {
+      switch (opt) {
+          case 'f':
+              filename = optarg;
+              break;
+          default:
+              std::cerr << "Usage: " << argv[0] << " -f <filename>" << std::endl;
+              return 1;
+      }
   }
 
-  int ncity=GetData(argv[1],cities);
+  if (filename.empty()) {
+      std::cerr << "Error: Filename (-f) is required!" << std::endl;
+      return 1;
+  }
+
+
+  int ncity=GetData(filename,cities);
   printf("Read %d cities from data file\n",ncity);
   // printf("Longitude  Latitude\n");
   // for (int i=0; i<ncity; i++)
   //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat); 
 
   double distance = GetTotalDistance(ncity,cities);
-  printf("Total trip distance: %.2f km\n",	distance);
-  for (int i=0; i<100;i++) {UpdatePath(ncity, cities);}
+  printf("Total starting trip distance: %.2f km\n",	distance);
+
+  // come up with a starting Tmax by randomly varying path and taking the largest dL 
+  double Tmax = 0;
+  for (int i=0; i<ncity*10;i++) {
+    double dL = UpdatePath(ncity, cities);
+    if (dL>Tmax) {Tmax=dL;}
+  }
+  printf("Tmax: %.2f km\n",	Tmax);
+  // for (int i=0; i<ncity; i++)
+  //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat); 
+
+  // write resulting path to file
+  string outfile = filename.erase(filename.find(".dat"),4) + "final.dat";
+  WriteData(outfile, ncity, cities);
+  
   return 0;
 }
 
