@@ -115,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('paths', nargs='*',
                         help='''paths to plot: original [optimized]''')
     parser.add_argument("-w", action='store_true',
-                        help="plo the whole world, default in North America only")
+                        help="plot the whole world, default in North America only")
     args = parser.parse_args()
     if len(args.paths)<1:
         print ("at least one input file needed")
