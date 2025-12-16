@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <vector>
 #include <TGraph.h>
 #include <TCanvas.h>
 #include <TAxis.h>
@@ -140,6 +141,40 @@ void WriteData(const string& filename, int ncity, const COORD *cities, double d1
 }
 
 
+void PlotCoolingHistory(const std::vector<double> &v_temp, const std::vector<double> &v_dist, const string& filename) {
+    // Create Canvas
+    TCanvas *c2 = new TCanvas("c2", "Annealing History", 800, 600);
+    
+    // Set X-axis to Log Scale (Crucial for Annealing plots)
+    c2->SetLogx(); 
+
+    // Create Graph
+    // &v_temp[0] gives the pointer to the underlying array of the vector
+    TGraph *gr = new TGraph(v_temp.size(), &v_temp[0], &v_dist[0]);
+
+    // Styling
+    gr->SetTitle("Optimization History;Temperature (T);Total Distance [km]");
+    gr->SetMarkerStyle(20);
+    gr->SetMarkerSize(0.6);
+    gr->SetMarkerColor(kBlue);
+    gr->SetLineColor(kBlue);
+    gr->SetLineWidth(2);
+
+    // Draw with Lines (L) and Points (P) and Axis (A)
+    // Note: Since T goes High -> Low, the graph draws Right -> Left. 
+    // This is normal for physics annealing plots.
+    gr->Draw("ALP");
+
+    // Save File
+    string imgFile = filename;
+    size_t lastindex = imgFile.find_last_of("."); 
+    string rawName = imgFile.substr(0, lastindex); 
+    c2->SaveAs((rawName + "_history.pdf").c_str());
+
+    delete gr;
+    delete c2;
+}
+
 
 int main(int argc, char *argv[]){
   TStopwatch timer; // timer to track how long code takes
@@ -207,6 +242,9 @@ int main(int argc, char *argv[]){
 
 
   // now do annealing, stopping only when the decrease in path is negligible
+  // Create vectors to store the history
+  std::vector<double> history_T;
+  std::vector<double> history_Dist;
   double prev_dist = distance;
   double dist_change = 1.0;
   double T = Tmax;
@@ -221,6 +259,12 @@ int main(int argc, char *argv[]){
     double currL = GetTotalDistance(ncity, cities); // current distance
     dist_change = abs(currL - prev_dist)/prev_dist;
     prev_dist = currL;
+
+    // store annealing history
+    history_T.push_back(T);
+    history_Dist.push_back(currL);
+
+    // update T
     T = alpha*T;
   }
 
@@ -236,6 +280,9 @@ int main(int argc, char *argv[]){
   // print the time it took
   timer.Print(); // Prints Real time (wall clock) and Cpu time
 
+  // GENERATE THE PLOT
+  PlotCoolingHistory(history_T, history_Dist, filename);
+  
   // write resulting path to file
   string outfile = filename.erase(filename.find(".dat"),4) + "final.dat";
   WriteData(outfile, ncity, cities, distance, distance_final);
