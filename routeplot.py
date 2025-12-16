@@ -5,15 +5,21 @@ import argparse
 def load_xy(filename):
     """Load only first two columns, skipping lines beginning with '#'."""
     data = []
+    lengths = []
     with open(filename) as f:
         for line in f:
             if line.startswith("#") or not line.strip():
+                continue
+            elif line.startswith("D:"):
+                lengths.append(line.split()[1])
+                lengths.append(line.split()[2]) 
+                print(lengths)
                 continue
             cols = line.split()
             # use only first two columns as floats
             data.append([float(cols[0]), float(cols[1])])
     data.append(data[0]) # close the path from the last to the 1st city
-    return np.array(data)
+    return np.array(data), lengths
 
 def load_polygons(filename):
     """Load longitude/latitude polygons separated by blank lines."""
@@ -56,8 +62,8 @@ def make_plot(infile,optfile=None,region="NA"):
     # Load data
     polygons    = load_polygons("world_50m.dat")
     #polygons    = load_polygons("world.dat") # low res version
-    cities_orig = load_xy(infile)
-    if optfile: cities_out  = load_xy(optfile)
+    cities_orig, distances = load_xy(infile)
+    if optfile: cities_out, distances  = load_xy(optfile)
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -93,6 +99,12 @@ def make_plot(infile,optfile=None,region="NA"):
     # Remove border on top + right (like gnuplot unset border)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
+
+    # add distances box
+    if len(distances) != 0:
+        text_str = f"Orig Dist: {float(distances[0])} km\nFinal Dist: {float(distances[1])} km"
+        ax.text(0.05, 0.95, text_str, transform=ax.transAxes, fontsize=14,
+            verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
     # Save plot
     plotfile=infile.split('.')[0]+'.pdf'

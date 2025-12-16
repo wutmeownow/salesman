@@ -6,6 +6,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <TGraph.h>
+#include <TCanvas.h>
+#include <TAxis.h>
 #include <TStopwatch.h>
 #include <unistd.h> // Required for getopt
 #include <TRandom3.h>
@@ -82,7 +85,7 @@ double UpdatePath(int ncities, COORD *cities, TRandom3 *r, double T=-1.) {
       reverse(cities+iRand, cities+jRand+1);
       return 1.; // successful change
     }
-    return 0.;
+    return 0.; // no change
   }
   
   // printf("Change in trip distance: %.3f km\n",	dL);
@@ -109,7 +112,9 @@ int GetData(string fname, COORD *cities){
 }
 
 
-void WriteData(const string& filename, int ncity, const COORD *cities) {
+void WriteData(const string& filename, int ncity, const COORD *cities, double d1, double d2) {
+    // d1 & d2 are trip distances before and after annealing
+
     // Open the file stream for writing
     ofstream outFile(filename);
 
@@ -127,13 +132,17 @@ void WriteData(const string& filename, int ncity, const COORD *cities) {
         outFile << cities[i].lon << "   " << cities[i].lat << "\n";
     }
 
+    // add final line with total distance before and after for plotting later
+    outFile << "D: " << d1 << "   " << d2 << "\n";
+
     outFile.close();
     std::cout << "Successfully wrote " << ncity << " points to " << filename << std::endl;
 }
 
 
+
 int main(int argc, char *argv[]){
-  TStopwatch timer;
+  TStopwatch timer; // timer to track how long code takes
   timer.Start();
   const int NMAX=2500;
   COORD cities[NMAX];
@@ -190,9 +199,12 @@ int main(int argc, char *argv[]){
     double dL = UpdatePath(ncity, cities, r);
     if (dL>Tmax) {Tmax=dL;}
   }
-  printf("Tmax: %.2f km\n",	Tmax);
+
+  // uncomment to print Tmax found and list of cities
+  // printf("Tmax: %.2f km\n",	Tmax);
   // for (int i=0; i<ncity; i++)
   //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat);
+
 
   // now do annealing, stopping only when the decrease in path is negligible
   double prev_dist = distance;
@@ -201,7 +213,7 @@ int main(int argc, char *argv[]){
   while (dist_change>limit) {
     // keep applying changes to the order until we hit the ncity*N changes at this T
     double nchanges = 0;
-    while (nchanges<ncity*N) {
+    while (nchanges<ncity*N*1.) {
       nchanges += UpdatePath(ncity,cities,r,T);
     }
 
@@ -211,17 +223,22 @@ int main(int argc, char *argv[]){
     prev_dist = currL;
     T = alpha*T;
   }
+
+  // stop timer after annealing is finished
   timer.Stop();
 
+
+  // get the final total distance and print
   double distance_final = GetTotalDistance(ncity,cities);
   printf("Total ending trip distance: %.2f km\n",	distance_final);
   printf("Distance reduction: %.2f km\n",	distance-distance_final);
+
+  // print the time it took
   timer.Print(); // Prints Real time (wall clock) and Cpu time
 
   // write resulting path to file
   string outfile = filename.erase(filename.find(".dat"),4) + "final.dat";
-  WriteData(outfile, ncity, cities);
+  WriteData(outfile, ncity, cities, distance, distance_final);
 
   return 0;
 }
-
