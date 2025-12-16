@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <TStopwatch.h>
 #include <unistd.h> // Required for getopt
 #include <TRandom3.h>
 
@@ -44,8 +45,7 @@ double GetTotalDistance(int ncities, const COORD *cities) {
   return dist;
 }
 
-double UpdatePath(int ncities, COORD *cities, double T=-1.) {
-  TRandom3 *r = new TRandom3(0);
+double UpdatePath(int ncities, COORD *cities, TRandom3 *r, double T=-1.) {
   int iRand = 0; // starting index of slice
   int lRand = ncities-1; // slice length
   // swapping the entire range changes nothing, iterate until we get something smaller
@@ -71,16 +71,22 @@ double UpdatePath(int ncities, COORD *cities, double T=-1.) {
   // carry out the change with std::reverse
   // Reverse indices iRand to jRand
   // Pointer arithmetic: arr + start, arr + end + 1
-  if (T<0) {reverse(cities+iRand, cities+jRand+1);} // hot, always take the change
+  if (T<0) {
+    // hot, always take the change
+    reverse(cities+iRand, cities+jRand+1);
+    return dL;
+  } 
   else {
     double p = r->Rndm();
     if (dL<0 || p < exp(-dL/T)) {
       reverse(cities+iRand, cities+jRand+1);
+      return 1.; // successful change
     }
+    return 0.;
   }
   
   // printf("Change in trip distance: %.3f km\n",	dL);
-  return dL;
+  // return dL;
 }
 
 
@@ -127,8 +133,11 @@ void WriteData(const string& filename, int ncity, const COORD *cities) {
 
 
 int main(int argc, char *argv[]){
+  TStopwatch timer;
+  timer.Start();
   const int NMAX=2500;
   COORD cities[NMAX];
+  TRandom3 *r = new TRandom3(0); // rng
 
   // parameters
   string filename = ""; // Default value
@@ -178,7 +187,7 @@ int main(int argc, char *argv[]){
   // also melting the initial config
   double Tmax = 0;
   for (int i=0; i<ncity*N;i++) {
-    double dL = UpdatePath(ncity, cities);
+    double dL = UpdatePath(ncity, cities, r);
     if (dL>Tmax) {Tmax=dL;}
   }
   printf("Tmax: %.2f km\n",	Tmax);
@@ -190,18 +199,24 @@ int main(int argc, char *argv[]){
   double dist_change = 1.0;
   double T = Tmax;
   while (dist_change>limit) {
-    for (int j=0;j<ncity*N;j++) {
-      UpdatePath(ncity,cities,T);
+    // keep applying changes to the order until we hit the ncity*N changes at this T
+    double nchanges = 0;
+    while (nchanges<ncity*N) {
+      nchanges += UpdatePath(ncity,cities,r,T);
     }
+
+    // calculate the final distance for this T
     double currL = GetTotalDistance(ncity, cities); // current distance
     dist_change = abs(currL - prev_dist)/prev_dist;
     prev_dist = currL;
     T = alpha*T;
   }
+  timer.Stop();
 
   double distance_final = GetTotalDistance(ncity,cities);
   printf("Total ending trip distance: %.2f km\n",	distance_final);
   printf("Distance reduction: %.2f km\n",	distance-distance_final);
+  timer.Print(); // Prints Real time (wall clock) and Cpu time
 
   // write resulting path to file
   string outfile = filename.erase(filename.find(".dat"),4) + "final.dat";
