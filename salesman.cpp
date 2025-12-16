@@ -44,7 +44,7 @@ double GetTotalDistance(int ncities, const COORD *cities) {
   return dist;
 }
 
-double UpdatePath(int ncities, COORD *cities) {
+double UpdatePath(int ncities, COORD *cities, double T=-1.) {
   TRandom3 *r = new TRandom3(0);
   int iRand = 0; // starting index of slice
   int lRand = ncities-1; // slice length
@@ -71,7 +71,13 @@ double UpdatePath(int ncities, COORD *cities) {
   // carry out the change with std::reverse
   // Reverse indices iRand to jRand
   // Pointer arithmetic: arr + start, arr + end + 1
-  reverse(cities+iRand, cities+jRand+1);
+  if (T<0) {reverse(cities+iRand, cities+jRand+1);} // hot, always take the change
+  else {
+    double p = r->Rndm();
+    if (dL<0 || p < exp(-dL/T)) {
+      reverse(cities+iRand, cities+jRand+1);
+    }
+  }
   
   // printf("Change in trip distance: %.3f km\n",	dL);
   return dL;
@@ -126,18 +132,30 @@ int main(int argc, char *argv[]){
 
   // parameters
   string filename = ""; // Default value
+  double alpha = 0.8; // next T parameter
+  int N = 10; // multiplicative factor for number of trials
+  double limit = 0.1; // limit factor for when to stop annealing
   int opt;
 
   // Loop through all arguments
   // "n:f:" means we expect flags -n and -f, and both require values (:)
-  while ((opt = getopt(argc, argv, "f:")) != -1) {
+  while ((opt = getopt(argc, argv, "f:n:a:l:")) != -1) {
       switch (opt) {
           case 'f':
-              filename = optarg;
-              break;
+            filename = optarg;
+            break;
+          case 'a':
+            alpha = std::stof(optarg);
+            break;
+          case 'n':
+            N = std::atoi(optarg);
+            break;
+          case 'l':
+            limit = std::stof(optarg);
+            break;
           default:
-              std::cerr << "Usage: " << argv[0] << " -f <filename>" << std::endl;
-              return 1;
+            std::cerr << "Usage: " << argv[0] << " -f <filename> -a <alpha> -n <N> -t <Tmin)" << std::endl;
+            return 1;
       }
   }
 
@@ -156,20 +174,39 @@ int main(int argc, char *argv[]){
   double distance = GetTotalDistance(ncity,cities);
   printf("Total starting trip distance: %.2f km\n",	distance);
 
-  // come up with a starting Tmax by randomly varying path and taking the largest dL 
+  // come up with a starting Tmax by randomly varying path and taking the largest dL
+  // also melting the initial config
   double Tmax = 0;
-  for (int i=0; i<ncity*10;i++) {
+  for (int i=0; i<ncity*N;i++) {
     double dL = UpdatePath(ncity, cities);
     if (dL>Tmax) {Tmax=dL;}
   }
   printf("Tmax: %.2f km\n",	Tmax);
   // for (int i=0; i<ncity; i++)
-  //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat); 
+  //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat);
+
+  // now do annealing, stopping only when the decrease in path is negligible
+  double prev_dist = distance;
+  double dist_change = 1.0;
+  double T = Tmax;
+  while (dist_change>limit) {
+    for (int j=0;j<ncity*N;j++) {
+      UpdatePath(ncity,cities,T);
+    }
+    double currL = GetTotalDistance(ncity, cities); // current distance
+    dist_change = abs(currL - prev_dist)/prev_dist;
+    prev_dist = currL;
+    T = alpha*T;
+  }
+
+  double distance_final = GetTotalDistance(ncity,cities);
+  printf("Total ending trip distance: %.2f km\n",	distance_final);
+  printf("Distance reduction: %.2f km\n",	distance-distance_final);
 
   // write resulting path to file
   string outfile = filename.erase(filename.find(".dat"),4) + "final.dat";
   WriteData(outfile, ncity, cities);
-  
+
   return 0;
 }
 
