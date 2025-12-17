@@ -1,53 +1,7 @@
 // example code to read in a data file of city lat,long coordinates
-
-#include <algorithm>
-#include <iostream>
-#include <fstream>
-#include <cstdio>
-#include <cstdlib>
-#include <cmath>
-#include <vector>
-#include <TGraph.h>
-#include <TCanvas.h>
-#include <TAxis.h>
-#include <TStopwatch.h>
-#include <unistd.h> // Required for getopt
-#include <TRandom3.h>
-
-using namespace std;
-
-// constants for distance calculation
-const double R = 6371.; // radius of earth
+#include "salesman.h"
 
 
-// simple structure to store city coordinates
-// could also use std::pair<double> 
-// or define a class
-
-typedef struct {
-  double lon, lat;
-} COORD;
-
-// calculate separation between two coordinates on globe
-double GetDistance(const COORD i, const COORD j) {
-  double dlat = i.lat - j.lat;
-  double dlong = i.lon - j.lon;
-  double a = pow(sin(dlat/2),2) + cos(i.lat)*cos(j.lat)*pow(sin(dlong/2),2);
-  double c = 2*atan2(sqrt(a),sqrt(1-a));
-  
-  return R*c;
-}
-
-// get total distance of path around globe
-double GetTotalDistance(int ncities, const COORD *cities) {
-  double dist = 0.;
-  for (int i=0;i<ncities;i++) {
-    int j = i-1; // index for city before this one
-    if (j<0) {j=ncities-1;} // starting city, city before is the last one
-    dist += GetDistance(cities[i], cities[j]);
-  }
-  return dist;
-}
 
 double UpdatePath(int ncities, COORD *cities, TRandom3 *r, double T=-1.) {
   int iRand = 0; // starting index of slice
@@ -68,8 +22,17 @@ double UpdatePath(int ncities, COORD *cities, TRandom3 *r, double T=-1.) {
   int joldpartner = jRand+1; // index of partner city for slice end
   if (joldpartner>ncities-1) {joldpartner=0;} // greater than ncities-1, partner is first city
 
-  double dold = GetDistance(cities[iRand], cities[ioldpartner]) + GetDistance(cities[jRand], cities[joldpartner]);
-  double dnew = GetDistance(cities[iRand], cities[joldpartner]) + GetDistance(cities[jRand], cities[ioldpartner]);
+  //get ID's of two cities and their partners
+  int id_i = cities[iRand].id;
+  int id_j = cities[jRand].id;
+  int id_i_prev = cities[ioldpartner].id;
+  int id_j_next = cities[joldpartner].id;
+
+  // double dold = GetDistance(cities[iRand], cities[ioldpartner]) + GetDistance(cities[jRand], cities[joldpartner]);
+  // double dnew = GetDistance(cities[iRand], cities[joldpartner]) + GetDistance(cities[jRand], cities[ioldpartner]);
+  // lookup distances from matrix
+  double dold = dist_matrix[id_i][id_i_prev] + dist_matrix[id_j][id_j_next];
+  double dnew = dist_matrix[id_i][id_j_next] + dist_matrix[id_j][id_i_prev];
   double dL = dnew-dold; // change in path length for this random slice reversal
 
   // carry out the change with std::reverse
@@ -94,92 +57,9 @@ double UpdatePath(int ncities, COORD *cities, TRandom3 *r, double T=-1.) {
 }
 
 
-// fill the array of city locations
-int GetData(string fname, COORD *cities){
-  FILE* fp=fopen(fname.c_str(),"r");
-  const int bufsiz=1000;
-  char line[bufsiz+1];
-  int ncity=0;
-  while(1){
-    fgets(line,bufsiz,fp);
-    if (line[0]=='#') continue;  // skip comments
-    if (feof(fp)) break;
-    // we only scan for two numbers at start of each line
-    sscanf(line,"%lf %lf",& cities[ncity].lon,&cities[ncity].lat);    
-    ncity++;
-  }
-  fclose(fp);
-  return ncity;
-}
-
-
-void WriteData(const string& filename, int ncity, const COORD *cities, double d1, double d2) {
-    // d1 & d2 are trip distances before and after annealing
-
-    // Open the file stream for writing
-    ofstream outFile(filename);
-
-    // Check if file opened successfully
-    if (!outFile.is_open()) {
-        std::cerr << "Error: Could not open file " << filename << " for writing." << std::endl;
-        return;
-    }
-
-    // Optional: Write a header line (useful for pandas/ROOT)
-    outFile << "#longitude   latitude\n";
-
-    // Loop through the data and write lines
-    for (int i=0;i<ncity;i++) {
-        outFile << cities[i].lon << "   " << cities[i].lat << "\n";
-    }
-
-    // add final line with total distance before and after for plotting later
-    outFile << "D: " << d1 << "   " << d2 << "\n";
-
-    outFile.close();
-    std::cout << "Successfully wrote " << ncity << " points to " << filename << std::endl;
-}
-
-
-void PlotCoolingHistory(const std::vector<double> &v_temp, const std::vector<double> &v_dist, const string& filename) {
-    // Create Canvas
-    TCanvas *c2 = new TCanvas("c2", "Annealing History", 800, 600);
-    
-    // Set X-axis to Log Scale (Crucial for Annealing plots)
-    c2->SetLogx(); 
-
-    // Create Graph
-    // &v_temp[0] gives the pointer to the underlying array of the vector
-    TGraph *gr = new TGraph(v_temp.size(), &v_temp[0], &v_dist[0]);
-
-    // Styling
-    gr->SetTitle("Optimization History;Temperature (T);Total Distance [km]");
-    gr->SetMarkerStyle(20);
-    gr->SetMarkerSize(0.6);
-    gr->SetMarkerColor(kBlue);
-    gr->SetLineColor(kBlue);
-    gr->SetLineWidth(2);
-
-    // Draw with Lines (L) and Points (P) and Axis (A)
-    // Note: Since T goes High -> Low, the graph draws Right -> Left. 
-    // This is normal for physics annealing plots.
-    gr->Draw("ALP");
-
-    // Save File
-    string imgFile = filename;
-    size_t lastindex = imgFile.find_last_of("."); 
-    string rawName = imgFile.substr(0, lastindex); 
-    c2->SaveAs((rawName + "_history.pdf").c_str());
-
-    delete gr;
-    delete c2;
-}
-
-
 int main(int argc, char *argv[]){
   TStopwatch timer; // timer to track how long code takes
   timer.Start();
-  const int NMAX=2500;
   COORD cities[NMAX];
   TRandom3 *r = new TRandom3(0); // rng
 
@@ -187,12 +67,13 @@ int main(int argc, char *argv[]){
   string filename = ""; // Default value
   double alpha = 0.8; // next T parameter
   int N = 10; // multiplicative factor for number of trials
-  double limit = 0.1; // limit factor for when to stop annealing
+  double limit = -1.; // limit factor for when to stop annealing
+  double Tf = -1.; // final temp for when to stop annealing
   int opt;
 
   // Loop through all arguments
   // "n:f:" means we expect flags -n and -f, and both require values (:)
-  while ((opt = getopt(argc, argv, "f:n:a:l:")) != -1) {
+  while ((opt = getopt(argc, argv, "f:n:a:l:t:")) != -1) {
       switch (opt) {
           case 'f':
             filename = optarg;
@@ -206,8 +87,11 @@ int main(int argc, char *argv[]){
           case 'l':
             limit = std::stof(optarg);
             break;
+          case 't':
+            Tf = std::stof(optarg);
+            break;
           default:
-            std::cerr << "Usage: " << argv[0] << " -f <filename> -a <alpha> -n <N> -t <Tmin)" << std::endl;
+            std::cerr << "Usage: " << argv[0] << " -f <filename> -a <alpha> -n <N> -t <Tmin> -l <limit>" << std::endl;
             return 1;
       }
   }
@@ -217,12 +101,23 @@ int main(int argc, char *argv[]){
       return 1;
   }
 
+  if (Tf == -1. && limit == -1.) {
+    std::cerr << "Error: limit (-l) or Tmin (-t) required!" << std::endl;
+    return 1;
+  }
+
+  if (Tf != -1. && limit != -1.) {
+    std::cerr << "Error: please only provide either limit (-l) or Tmin (-t) to choose when annealing stops!" << std::endl;
+    return 1;
+  }
+
 
   int ncity=GetData(filename,cities);
   printf("Read %d cities from data file\n",ncity);
   // printf("Longitude  Latitude\n");
   // for (int i=0; i<ncity; i++)
-  //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat); 
+  //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat);
+  PrecomputeDistances(ncity,cities); // precompute separations and place them in lookup table
 
   double distance = GetTotalDistance(ncity,cities);
   printf("Total starting trip distance: %.2f km\n",	distance);
@@ -240,33 +135,57 @@ int main(int argc, char *argv[]){
   // for (int i=0; i<ncity; i++)
   //   printf("%lf %lf\n",	cities[i].lon,cities[i].lat);
 
-
-  // now do annealing, stopping only when the decrease in path is negligible
   // Create vectors to store the history
   std::vector<double> history_T;
   std::vector<double> history_Dist;
-  double prev_dist = distance;
-  double dist_change = 1.0;
+
+
+  // now do annealing, stopping only when the decrease in path is negligible OR we reach Tf
   double T = Tmax;
-  while (dist_change>limit) {
-    // keep applying changes to the order until we hit the ncity*N changes at this T
-    double nchanges = 0;
-    while (nchanges<ncity*N*1.) {
-      nchanges += UpdatePath(ncity,cities,r,T);
+  if (Tf!=-1.) {
+    // stop annealing when Tf is reached
+    while (T>Tf) {
+      // keep applying changes to the order until we hit the ncity*N changes at this T
+      double nchanges = 0;
+      while (nchanges<ncity*N*1.) {
+        nchanges += UpdatePath(ncity,cities,r,T);
+      }
+
+      // calculate the final distance for this T
+      double currL = GetTotalDistance(ncity, cities); // current distance
+
+      // store annealing history
+      history_T.push_back(T);
+      history_Dist.push_back(currL);
+
+      // update T
+      T = alpha*T;
+    } 
+  } else {
+    // stop annealing when change is less than limit
+    double prev_dist = distance;
+    double dist_change = 1.0;
+    while (dist_change>limit) {
+      // keep applying changes to the order until we hit the ncity*N changes at this T
+      double nchanges = 0;
+      while (nchanges<ncity*N*1.) {
+        nchanges += UpdatePath(ncity,cities,r,T);
+      }
+
+      // calculate the final distance for this T
+      double currL = GetTotalDistance(ncity, cities); // current distance
+      dist_change = abs(currL - prev_dist)/prev_dist;
+      prev_dist = currL;
+
+      // store annealing history
+      history_T.push_back(T);
+      history_Dist.push_back(currL);
+
+      // update T
+      T = alpha*T;
     }
-
-    // calculate the final distance for this T
-    double currL = GetTotalDistance(ncity, cities); // current distance
-    dist_change = abs(currL - prev_dist)/prev_dist;
-    prev_dist = currL;
-
-    // store annealing history
-    history_T.push_back(T);
-    history_Dist.push_back(currL);
-
-    // update T
-    T = alpha*T;
   }
+  
 
   // stop timer after annealing is finished
   timer.Stop();
@@ -282,7 +201,7 @@ int main(int argc, char *argv[]){
 
   // GENERATE THE PLOT
   PlotCoolingHistory(history_T, history_Dist, filename);
-  
+
   // write resulting path to file
   string outfile = filename.erase(filename.find(".dat"),4) + "final.dat";
   WriteData(outfile, ncity, cities, distance, distance_final);
