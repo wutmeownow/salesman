@@ -36,3 +36,6 @@ cities 150 317298.65 48033.77 0:00:03  - CMD: "./salesman -f cities150.dat -n 10
 cities 1k 732177.74 93987.42 0:10:03 - CMD: "./salesman -f cities1k.dat -n 10 -a 0.99 -l 0.00001" <br>
 
 cities 2k 10187617.64 275462.64 0:11:23 - CMD: "./salesman -f cities2k.dat -n 10 -a 0.99 -l 0.00001" <br>
+
+The code starts by melting the initial config from the file and selects a Tmax from the largest change in path length during this process. Updating the path requires the random reversal of a random slice of cities in the path. During annealing, for each temperature there are n*(N cities) successful changes made to the path according to the Metropolis algorithm. The next temperature is a factor a times the previous temperature. Once Tmin or the minimum change in energy between each temperature is reached, the annealing is done. <br>
+I tried a couple sets of different parameters, but the choices above seem to give reasonable results within a reasonable amount of time. A large a requires a very gradual drop in temperature while a smallish n makes sure that annealing doesn't take too long. The final limit 0.00001 was chosen since it seems to give fairly reproducible results.
