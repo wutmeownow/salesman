@@ -78,7 +78,6 @@ inline int GetData(string fname, COORD *cities){
   return ncity;
 }
 
-
 // function to plot annealing schedule
 inline void PlotCoolingHistory(const std::vector<double> &v_temp, const std::vector<double> &v_dist, const string& filename) {
     // Create Canvas
@@ -108,7 +107,8 @@ inline void PlotCoolingHistory(const std::vector<double> &v_temp, const std::vec
     string imgFile = filename;
     size_t lastindex = imgFile.find_last_of("."); 
     string rawName = imgFile.substr(0, lastindex); 
-    c2->SaveAs((rawName + "_history.pdf").c_str());
+    rawName = "an" + rawName.erase(rawName.find("cities"),6);
+    c2->SaveAs((rawName + ".png").c_str());
 
     delete gr;
     delete c2;

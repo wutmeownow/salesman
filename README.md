@@ -23,9 +23,12 @@ Run make to build salesman.cpp. salesman takes several arguments at the command 
 * -a : factor for producing next temperature (ex: T' = a * T)
 * -t : final temperature to end annealing at
 * -l : limit in change between path between two temperatures. Will end annealing if percent change is below this limit (0 < limit < 1.0)
-You must provide a filename and either -t or -l options. Defaults for -n and -a is 10 and 0.8 respectively.<br>
-Once salesman is run, you must run routeplot using the appropriate cities[\#]final.dat file.<br>
+<br>You must provide a filename and either -t or -l options. Defaults for -n and -a is 10 and 0.8 respectively.<br>
+Once salesman is run, you must run routeplot using the appropriate cities[\#]final.dat file to make the plot of the route.<br>
 
 Ex:<br>
-./salesman -f cities150.dat -n 500 -a 0.9 -t 0.1 <- Runs salesman for cities150.dat, n=500, a=0.9, down to T=0.1km. Saves to cities150final.dat<br>
+./salesman -f cities150.dat -n 500 -a 0.9 -t 0.1 <- Runs salesman for cities150.dat, n=500, a=0.9, down to T=0.1km. Saves to cities150final.dat and plots annealing schedule to an[\#].png<br>
 python routeplot.py cities150final.dat <- Plots path to cities150final.pdf
+
+## Results
+cities 150 1516864.25 187510.48 0:03:34 <br>

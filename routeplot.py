@@ -107,7 +107,7 @@ def make_plot(infile,optfile=None,region="NA"):
             verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 
     # Save plot
-    plotfile=infile.split('.')[0]+'.pdf'
+    plotfile=infile.split('.')[0].replace("final","")+'.pdf'
     plt.savefig(plotfile, format='pdf', facecolor='white')
 
     print('close plot or "^C" to exit')
