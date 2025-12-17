@@ -1,6 +1,6 @@
 #ifndef SALESMAN_H   // 1. Start Include Guard
 #define SALESMAN_H
-
+#define _USE_MATH_DEFINES
 #include <algorithm>
 #include <iostream>
 #include <fstream>
@@ -116,11 +116,17 @@ inline void PlotCoolingHistory(const std::vector<double> &v_temp, const std::vec
 
 // calculate separation between two coordinates on globe
 inline double GetDistance(const COORD i, const COORD j) {
-  double dlat = i.lat - j.lat;
-  double dlong = i.lon - j.lon;
+  // convert to radians
+  double ilat = i.lat * M_PI/180.;
+  double ilon = i.lon * M_PI/180.;
+  double jlat = j.lat * M_PI/180.;
+  double jlon = j.lon * M_PI/180.;
+
+  double dlat = (ilat - jlat);
+  double dlong = (ilon - jlon);
   double s1 = sin(dlat/2);
   double s2 = sin(dlong/2);
-  double a = s1*s1 + cos(i.lat)*cos(j.lat)*s2*s2;
+  double a = s1*s1 + cos(ilat)*cos(jlat)*s2*s2;
   double c = 2*atan2(sqrt(a),sqrt(1-a));
   
   return R*c;

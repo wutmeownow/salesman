@@ -195,6 +195,7 @@ int main(int argc, char *argv[]){
   double distance_final = GetTotalDistance(ncity,cities);
   printf("Total ending trip distance: %.2f km\n",	distance_final);
   printf("Distance reduction: %.2f km\n",	distance-distance_final);
+  printf("Final T: %.2f km\n",	T);
 
   // print the time it took
   timer.Print(); // Prints Real time (wall clock) and Cpu time

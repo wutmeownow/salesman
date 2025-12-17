@@ -31,4 +31,8 @@ Ex:<br>
 python routeplot.py cities150final.dat <- Plots path to cities150final.pdf
 
 ## Results
-cities 150 1516864.25 187510.48 0:03:34 <br>
+cities 150 317298.65 48033.77 0:00:03  - CMD: "./salesman -f cities150.dat -n 10 -a 0.99 -l 0.00001" <br>
+
+cities 1k 732177.74 93987.42 0:10:03 - CMD: "./salesman -f cities1k.dat -n 10 -a 0.99 -l 0.00001" <br>
+
+cities 2k 10187617.64 275462.64 0:11:23 - CMD: "./salesman -f cities2k.dat -n 10 -a 0.99 -l 0.00001" <br>
